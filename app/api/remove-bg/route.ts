@@ -4,32 +4,11 @@ export const runtime = "edge";
 
 const DAILY_LIMIT = 3;
 
-// Cloudflare KV binding 类型声明
-declare const RATE_LIMIT_KV: KVNamespace;
-
-function getTodayKey(ip: string): string {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  return `ratelimit:${ip}:${today}`;
+// Workers Rate Limiting API binding 类型声明
+interface RateLimit {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
 }
-
-async function checkRateLimit(ip: string): Promise<{ allowed: boolean; remaining: number; total: number }> {
-  try {
-    const key = getTodayKey(ip);
-    const raw = await RATE_LIMIT_KV.get(key);
-    const count = raw ? parseInt(raw, 10) : 0;
-
-    if (count >= DAILY_LIMIT) {
-      return { allowed: false, remaining: 0, total: DAILY_LIMIT };
-    }
-
-    // 递增计数，设置 25 小时过期（确保跨天重置）
-    await RATE_LIMIT_KV.put(key, String(count + 1), { expirationTtl: 90000 });
-    return { allowed: true, remaining: DAILY_LIMIT - count - 1, total: DAILY_LIMIT };
-  } catch {
-    // KV 不可用时放行（开发环境）
-    return { allowed: true, remaining: DAILY_LIMIT - 1, total: DAILY_LIMIT };
-  }
-}
+declare const RATE_LIMITER: RateLimit;
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,25 +18,30 @@ export async function POST(req: NextRequest) {
       req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
       "unknown";
 
-    // 限流检查
-    const rateLimit = await checkRateLimit(ip);
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        {
-          error: "Daily limit reached",
-          message: `You've used all ${DAILY_LIMIT} free uses for today. Come back tomorrow!`,
-          remaining: 0,
-          total: DAILY_LIMIT,
-        },
-        {
-          status: 429,
-          headers: {
-            "X-RateLimit-Limit": String(DAILY_LIMIT),
-            "X-RateLimit-Remaining": "0",
-            "Retry-After": "86400",
+    // Workers Rate Limiting API 限流检查
+    try {
+      const { success } = await RATE_LIMITER.limit({ key: ip });
+      if (!success) {
+        return NextResponse.json(
+          {
+            error: "Daily limit reached",
+            message: `You've used all ${DAILY_LIMIT} free uses for today. Come back tomorrow!`,
+            remaining: 0,
+            total: DAILY_LIMIT,
           },
-        }
-      );
+          {
+            status: 429,
+            headers: {
+              "X-RateLimit-Limit": String(DAILY_LIMIT),
+              "X-RateLimit-Remaining": "0",
+              "Retry-After": "86400",
+            },
+          }
+        );
+      }
+    } catch {
+      // Rate Limiter 不可用时放行（本地开发环境）
+      console.warn("Rate limiter unavailable, skipping check");
     }
 
     const formData = await req.formData();
@@ -115,7 +99,6 @@ export async function POST(req: NextRequest) {
         "Content-Disposition": 'attachment; filename="removed-bg.png"',
         "Cache-Control": "no-store",
         "X-RateLimit-Limit": String(DAILY_LIMIT),
-        "X-RateLimit-Remaining": String(rateLimit.remaining),
       },
     });
   } catch (err) {
