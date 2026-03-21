@@ -3,13 +3,7 @@ compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".vercel/output/static"
 
-# Workers Rate Limiting API
-# 每个 IP 每天最多 3 次（period=86400 秒）
-[[unsafe.bindings]]
-name = "RATE_LIMITER"
-type = "ratelimit"
-namespace_id = "1001"
-
-[unsafe.bindings.simple]
-limit = 3
-period = 86400
+# Rate Limiting binding 在 Cloudflare Pages Dashboard 里配置：
+# Settings → Functions → Rate limiting bindings → Add binding
+# Variable name: RATE_LIMITER
+# Limit: 3 requests per 86400 seconds (per IP)
