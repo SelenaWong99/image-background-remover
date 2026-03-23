@@ -119,7 +119,7 @@ export default function Home() {
       {/* Drop Zone */}
       {status === "idle" && (
         <div
-          component="div"
+
           onDragOver={(e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
