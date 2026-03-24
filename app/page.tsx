@@ -56,7 +56,9 @@ export default function Home() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error ?? "Something went wrong.");
+        const hint = data.hint ?? "";
+        const fullMsg = data.error + (hint ? "\n\n" + hint : "");
+        throw new Error(fullMsg);
       }
 
       const blob = await res.blob();
@@ -68,8 +70,9 @@ export default function Home() {
         total: totalHeader ? parseInt(totalHeader) : 3,
       });
       setStatus("done");
-    } catch (e: any) {
-      setErrorMsg(e.message ?? "Something went wrong.");
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : "Something went wrong.";
+      setErrorMsg(errMsg);
       setStatus("error");
     }
   }, []);
@@ -89,6 +92,11 @@ export default function Home() {
     setResult(null);
     setErrorMsg("");
     if (inputRef.current) inputRef.current.value = "";
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
   };
 
   return (
@@ -119,17 +127,24 @@ export default function Home() {
       {/* Drop Zone */}
       {status === "idle" && (
         <div
-          component="div"
+          onClick={() => inputRef.current?.click()}
           onDragOver={(e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
-          onClick={() => inputRef.current?.click()}
           className={`w-full max-w-xl border-2 border-dashed rounded-3xl p-20 flex flex-col items-center justify-center cursor-pointer transition-all duration-200
             ${dragging
               ? "border-indigo-400 bg-indigo-500/10 scale-[1.01]"
               : "border-slate-700 hover:border-slate-500 bg-slate-800/30 hover:bg-slate-800/50"
             }`}
         >
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            style={{ display: "none" }}
+            onChange={handleInputChange}
+          />
           <div className="w-16 h-16 rounded-2xl bg-slate-700/60 flex items-center justify-center mb-4">
             <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -139,9 +154,8 @@ export default function Home() {
           <p className="text-white font-semibold text-lg mb-1">Drop your image here</p>
           <p className="text-slate-500 text-sm text-center">
             or <span className="text-indigo-400">click to browse</span>
-            <br />PNG, JPG, WEBP · max 10MB · {3} free uses/day
+            <br />PNG, JPG, WEBP · max 10MB · 3 free uses/day
           </p>
-          <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
         </div>
       )}
 

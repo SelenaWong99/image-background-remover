@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "edge";
+export const dynamic = "force-dynamic";
 
 const DAILY_LIMIT = 3;
 
@@ -87,6 +87,18 @@ export async function POST(req: NextRequest) {
     if (!rbRes.ok) {
       const errData = await rbRes.json().catch(() => ({}));
       const msg = (errData as any)?.errors?.[0]?.title ?? "Background removal failed.";
+      
+      // 针对 remove.bg 特定错误返回友好提示
+      if (msg.includes("Could not identify foreground")) {
+        return NextResponse.json(
+          { 
+            error: "Could not detect a clear subject in this image.",
+            hint: "Please upload a photo with a clear subject like a person, product, or object against a contrasting background."
+          },
+          { status: 400 }
+        );
+      }
+      
       return NextResponse.json({ error: msg }, { status: rbRes.status });
     }
 

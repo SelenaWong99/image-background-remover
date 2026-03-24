@@ -1,7 +1,7 @@
 name = "image-background-remover"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
-pages_build_output_dir = ".vercel/output/static"
+pages_build_output_dir = ".next"
 
 # Rate Limiting binding 在 Cloudflare Pages Dashboard 里配置：
 # Settings → Functions → Rate limiting bindings → Add binding
