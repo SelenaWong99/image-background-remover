@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
+// 使用 edge runtime 以兼容 Cloudflare Pages
+export const runtime = "edge";
 
 const DAILY_LIMIT = 3;
 
@@ -73,9 +74,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Service not configured." }, { status: 500 });
     }
 
-    // 调用 remove.bg
+    // 调用 remove.bg - 将 File 转换为 ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = new Uint8Array(arrayBuffer);
+    
     const rbForm = new FormData();
-    rbForm.append("image_file", file);
+    rbForm.append("image_file", new Blob([buffer], { type: file.type }), file.name);
     rbForm.append("size", "auto");
 
     const rbRes = await fetch("https://api.remove.bg/v1.0/removebg", {
